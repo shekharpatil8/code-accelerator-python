@@ -1,6 +1,6 @@
 from http import HTTPStatus
 import toml
-from com.everestek.evhub.accelerator.api.management_api_base import BaseManagementApi
+from com.everestek.accelerator.evhub.api.management_api_base import BaseManagementApi
 
 class ManagementApiImpl(BaseManagementApi):
     async def health_check(self) -> None:

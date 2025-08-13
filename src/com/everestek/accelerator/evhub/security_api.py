@@ -16,5 +16,5 @@ from fastapi.security import (  # noqa: F401
 )
 from fastapi.security.api_key import APIKeyCookie, APIKeyHeader, APIKeyQuery  # noqa: F401
 
-from com.everestek.evhub.accelerator.dto.extra_models import TokenModel
+from com.everestek.accelerator.evhub.dto.extra_models import TokenModel
 

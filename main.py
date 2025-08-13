@@ -12,16 +12,16 @@
 """  # noqa: E501
 
 
-from fastapi import FastAPI 
+from fastapi import FastAPI
 
-from com.everestek.evhub.accelerator.api.management_api import router as ManagementApiRouter
+from com.everestek.accelerator.evhub.api.management_api import router as ManagementApiRouter
 
 
 app = FastAPI(
     title="Everestek Custom APIs",
     description="Everestek customs APIs developed as micro-service extension.",
     version="1.0",
-    root_path="/accelerator/v1",
+    root_path="/evhub/v1",
 )
 
 app.include_router(ManagementApiRouter)

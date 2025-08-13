@@ -100,20 +100,15 @@ jobs:
           name: Create lint directory
           command: mkdir -p build/reports/lint
 
-      # # Create a directory for dependency-check reports
+      # Create a directory for dependency-check reports
       # - run:
       #     name: Create dependency-check directory
       #     command: mkdir -p build/reports/dependency-check
 
-      # # Upgrade dependency
-      # - run:
-      #     name: Upgrade dependency
-      #     command: poetry run pip install --upgrade dependency-check
-
-      # # Perform OWASP dependency check for vulnerabilities
+      # Perform OWASP dependency check for vulnerabilities
       # - run:
       #     name: Run OWASP dependency check
-      #     command: poetry run dependency-check --project "code-accelerator-python"  --scan ./src -o build/reports/dependency-check
+      #     command: poetry run dependency-check --project "code-accelerator-example-project"  --scan ./src -o build/reports/dependency-check
 
       # Create directories for storing test and coverage reports
       - run:

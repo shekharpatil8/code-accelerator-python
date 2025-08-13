@@ -2,7 +2,7 @@ ARG PYTHON_VERSION=3.13.5
 
 FROM python:3.13.5-slim as Build-image
 
-WORKDIR /accelerator
+WORKDIR /evhub
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     WORKDIR_PATH=WORKDIR \
@@ -21,17 +21,17 @@ ENV PATH ="$VENV_PATH/bin:$PATH"
 
 RUN pip install --no-cache-dir --compile --upgrade pip poetry wheel
 
-COPY ./pyproject.toml /accelerator/pyproject.toml
-COPY ./poetry.lock /accelerator/poetry.lock
+COPY ./pyproject.toml /evhub/pyproject.toml
+COPY ./poetry.lock /evhub/poetry.lock
 
 RUN poetry config virtualenvs.create false \
     && poetry install --no-root --only main
 
-COPY ./src /accelerator/src
-COPY ./main.py /accelerator/main.py
-COPY ./deployments/entrypoint.sh /accelerator/deployments/entrypoint.sh
+COPY ./src /evhub/src
+COPY ./main.py /evhub/main.py
+COPY ./deployments/entrypoint.sh /evhub/deployments/entrypoint.sh
 
-RUN chmod +x /accelerator/deployments/entrypoint.sh
+RUN chmod +x /evhub/deployments/entrypoint.sh
 
 EXPOSE 9001
 
