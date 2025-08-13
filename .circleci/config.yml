@@ -105,6 +105,11 @@ jobs:
           name: Create dependency-check directory
           command: mkdir -p build/reports/dependency-check
 
+      # Upgrade dependency
+      - run:
+          name: Upgrade dependency
+          command: poetry run pip install --upgrade dependency-check
+
       # Perform OWASP dependency check for vulnerabilities
       - run:
           name: Run OWASP dependency check
