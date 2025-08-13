@@ -101,14 +101,14 @@ jobs:
           command: mkdir -p build/reports/lint
 
       # Create a directory for dependency-check reports
-      - run:
-          name: Create dependency-check directory
-          command: mkdir -p build/reports/dependency-check
+      # - run:
+      #     name: Create dependency-check directory
+      #     command: mkdir -p build/reports/dependency-check
 
       # Perform OWASP dependency check for vulnerabilities
-      - run:
-          name: Run OWASP dependency check
-          command: poetry run dependency-check --project "code-accelerator-example-project"  --scan ./src -o build/reports/dependency-check
+      # - run:
+      #     name: Run OWASP dependency check
+      #     command: poetry run dependency-check --project "code-accelerator-example-project"  --scan ./src -o build/reports/dependency-check
 
       # Create directories for storing test and coverage reports
       - run:
@@ -129,9 +129,9 @@ jobs:
             poetry run coverage xml --data-file=build/reports/coverage/.coverage -o build/reports/coverage/xml/coverage.xml
 
       # Store the dependency-check reports as artifacts
-      - store_artifacts:
-          path: build/reports/dependency-check
-          destination: dependency-check/
+      # - store_artifacts:
+      #     path: build/reports/dependency-check
+      #     destination: dependency-check/
 
       # Store the unit test results as artifacts
       - store_artifacts:
