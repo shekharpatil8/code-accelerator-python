@@ -17,6 +17,8 @@ from fastapi import FastAPI
 from com.everestek.accelerator.evhub.api.management_api import router as ManagementApiRouter
 
 
+from com.everestek.accelerator.evhub.api.books_api import router as BooksApiRouter
+
 app = FastAPI(
     title="Everestek Custom APIs",
     description="Everestek customs APIs developed as micro-service extension.",
@@ -25,3 +27,4 @@ app = FastAPI(
 )
 
 app.include_router(ManagementApiRouter)
+app.include_router(BooksApiRouter)

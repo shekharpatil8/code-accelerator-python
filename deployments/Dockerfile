@@ -10,7 +10,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED="true"
 
 
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y curl && apt-get install -y \
     build-essential \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
