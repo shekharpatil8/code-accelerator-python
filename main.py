@@ -12,7 +12,7 @@
 """  # noqa: E501
 
 
-from fastapi import FastAPI
+from fastapi import FastAPI 
 
 from com.everestek.evhub.accelerator.api.management_api import router as ManagementApiRouter
 
