@@ -108,7 +108,7 @@ jobs:
       # Perform OWASP dependency check for vulnerabilities
       - run:
           name: Run OWASP dependency check
-          command: poetry run dependency-check --project "code-accelerator-example-project"  --scan ./src -o build/reports/dependency-check
+          command: poetry run dependency-check --project "code-accelerator-python"  --scan ./src -o build/reports/dependency-check
 
       # Create directories for storing test and coverage reports
       - run:
