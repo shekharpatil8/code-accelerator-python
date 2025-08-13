@@ -1,0 +1,294 @@
+version: 2.1
+orbs:
+  aws-cli: circleci/aws-cli@2.0.3
+  aws-ecs: circleci/aws-ecs@0.0.8
+
+# Define the executors
+executors:
+  python-executor:
+    docker:
+      - image: cimg/python:3.13.5
+    environment:
+      JAVA_HOME: /usr/lib/jvm/java-21-openjdk-amd64
+
+# Define pipeline parameters, change default values accordingly.
+parameters:
+  aws-ecr-repo:
+    default: my-python-app
+    description: Name of the Amazon ECR repository, where the docker image with be pushed after successful build.
+    type: string
+  task-definition-family:
+    default: my-python-app-task
+    description: Name of the ECS task definition family.
+    type: string
+  ecs-cluster-name:
+    default: my-python-app-cluster
+    description: Name or ARN of the ECS cluster hosting the service.
+    type: string
+  ecs-service-name:
+    default: my-python-app-service
+    description: Name of the ECS service to update.
+    type: string
+  ecs-service-container-name:
+    default: my-python-app-container
+    description: Name of the container within the task definition.
+    type: string
+  aws-access-key-id:
+    default: AWS_ACCESS_KEY_ID
+    description: The access key id of the AWS account, passed as ENV variable.
+    type: string
+  aws-secret-access-key:
+    default: AWS_SECRET_ACCESS_KEY
+    description: The secret access key id of the AWS account, passed as ENV variable.
+    type: string
+  region:
+    default: AWS_DEFAULT_REGION
+    description: The default region of the AWS account, passed as ENV variable.
+    type: string
+  aws-account-id:
+    default: AWS_ACCOUNT_ID
+    description: AWS account ID of the account which is used for deployment.
+    type: string
+
+jobs:
+
+  build:
+    executor: python-executor
+    steps:
+      # Checkout the code from the repository
+      - checkout
+
+      # Install OpenJDK 21
+      - run:
+          name: Install Java 21
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y software-properties-common
+            sudo add-apt-repository -y ppa:openjdk-r/ppa  # Add OpenJDK PPA
+            sudo apt-get update
+            sudo apt-get install -y openjdk-21-jdk  # Install OpenJDK 21
+            echo "export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64" >> $BASH_ENV
+            echo "export PATH=\$JAVA_HOME/bin:\$PATH" >> $BASH_ENV
+            source $BASH_ENV
+      - run:
+          name: Verify Java Installation
+          command: |
+            java -version
+            echo "JAVA_HOME is set to: $JAVA_HOME"
+
+      # Install Poetry for dependency management
+      - run:
+          name: Install poetry
+          command: pip install --no-cache-dir --compile --upgrade pip poetry wheel
+
+      # Install project dependencies
+      - run:
+          name: Install dependencies
+          command: poetry install --no-root
+
+      # Compile the source and test code to check for syntax errors
+      - run:
+          name: Compile the generated Code
+          command: python -m compileall -f src test
+
+      # Create a directory for linting reports
+      - run:
+          name: Create lint directory
+          command: mkdir -p build/reports/lint
+
+      # Create a directory for dependency-check reports
+      - run:
+          name: Create dependency-check directory
+          command: mkdir -p build/reports/dependency-check
+
+      # Perform OWASP dependency check for vulnerabilities
+      - run:
+          name: Run OWASP dependency check
+          command: poetry run dependency-check --project "code-accelerator-example-project"  --scan ./src -o build/reports/dependency-check
+
+      # Create directories for storing test and coverage reports
+      - run:
+          name: Create report directories
+          command: |
+            mkdir -p build/reports/coverage/html
+            mkdir -p build/reports/coverage/xml
+            mkdir -p build/reports/unit-tests/
+
+      # Run unit tests and generate coverage reports
+      - run:
+          name: Run unit tests and generate coverage
+          command: |
+            PYTHONPATH=$(pwd):$(pwd)/src:$(pwd)/test
+            export PYTHONPATH
+            poetry run coverage run --include=src/* --data-file=build/reports/coverage/.coverage --branch -m pytest --import-mode=importlib -ra --junitxml=build/reports/unit-tests/tests-result.xml --html=build/reports/unit-tests/index.html
+            poetry run coverage html --data-file=build/reports/coverage/.coverage -d build/reports/coverage/html
+            poetry run coverage xml --data-file=build/reports/coverage/.coverage -o build/reports/coverage/xml/coverage.xml
+
+      # Store the dependency-check reports as artifacts
+      - store_artifacts:
+          path: build/reports/dependency-check
+          destination: dependency-check/
+
+      # Store the unit test results as artifacts
+      - store_artifacts:
+          path: build/reports/unit-tests
+          destination: unit-tests/
+
+      # Store the coverage reports in HTML format as artifacts
+      - store_artifacts:
+          path: build/reports/coverage/html
+          destination: code-coverage-in-html/
+
+      # Store the coverage reports in XML format as artifacts
+      - store_artifacts:
+          path: build/reports/coverage/html
+          destination: code-coverage-in-xml/
+
+  package:
+    executor: python-executor
+    working_directory: ~/workspace
+    steps:
+      - checkout
+
+      - attach_workspace:
+          at: /home/circleci/workspace  # Attach the workspace from the build job
+
+      - setup_remote_docker
+
+      - run:
+          name: Construct ECR Account URL
+          command: |
+            export ECR_URL="$<<pipeline.parameters.aws-account-id>>.dkr.ecr.$<<pipeline.parameters.region>>.amazonaws.com"
+            echo "ECR_URL=$ECR_URL"
+            echo "export ECR_URL=$ECR_URL" >> $BASH_ENV
+            # Save the ECR_URL for the publish job
+            echo $ECR_URL > ecr_url.txt
+
+      - run:
+          name: Build and save Docker Image
+          command: |
+            export TIMESTAMP=$(date +"%Y%m%d%H%M%S")  # Generate a timestamp for the Docker image tag
+            export TAG=<<pipeline.parameters.docker-image-version>>-${TIMESTAMP}_SNAPSHOT
+            
+            # Build Docker image using parameters
+            docker build -f deployments/Dockerfile -t <<pipeline.parameters.aws-ecr-repo>>:${TAG} .
+            
+            # Save Docker image to a tar file
+            docker save -o my-app.tar <<pipeline.parameters.aws-ecr-repo>>:${TAG}
+            
+            # Save the tag information for the publish job
+            echo $TAG > tag.txt
+
+      - persist_to_workspace:
+          root: /home/circleci/workspace
+          paths:
+            - tag.txt  # Save the image tag information for the next job
+            - ecr_url.txt # Save the ECR URL for the next job
+            - my-app.tar  # Save the built Docker image
+
+  publish:
+    executor: python-executor
+    steps:
+      - checkout
+      - attach_workspace:
+          at: /home/circleci/workspace  # Attach the workspace from the package job
+      - setup_remote_docker  # Enable remote Docker support
+
+      - aws-cli/setup:
+          aws-access-key-id: <<pipeline.parameters.aws-access-key-id>>
+          aws-region: <<pipeline.parameters.region>>
+          aws-secret-access-key: <<pipeline.parameters.aws-secret-access-key>>
+
+      - run:
+          name: Export Metadata
+          command: |
+            ls
+            export TAG="$(cat /home/circleci/workspace/tag.txt)"  # Read the image tag from the file
+            echo "TAG='${TAG}'"
+            echo "export TAG='${TAG}'" >> $BASH_ENV  # Persist the tag as an environment variable
+
+            export ECR_URL="$(cat /home/circleci/workspace/ecr_url.txt)"  # Read the ECR_URL from the file
+            echo "ECR_URL='${ECR_URL}'"
+            echo "export ECR_URL='${ECR_URL}'" >> $BASH_ENV  # Persist the ECR_URL as an environment variable
+
+      # Load the previously build docker image
+      - run:
+          name: Load Docker image
+          command: docker load -i /home/circleci/workspace/my-app.tar  # Load the saved Docker image
+
+      # Authenticate with AWS ECR.
+      - run:
+          name: Login to ECR
+          command: |
+            echo "${ECR_URL}"
+            aws ecr get-login-password --region $<<pipeline.parameters.region>> | docker login --username AWS --password-stdin $ECR_URL
+
+      # Create a new tag for docker image to push into ECR
+      - run:
+          name: Tag Docker Image
+          command: |
+            docker tag <<pipeline.parameters.aws-ecr-repo>>:${TAG} $ECR_URL/<<pipeline.parameters.aws-ecr-repo>>:${TAG}
+
+      # Push docker image to ECR
+      - run:
+          name: Push Docker Image to AWS ECR
+          command: |
+            echo "Pushing image: $TAG"
+            docker push $ECR_URL/<<pipeline.parameters.aws-ecr-repo>>:$TAG  # Push the image to AWS ECR
+
+      - persist_to_workspace:
+          root: /home/circleci/workspace
+          paths:
+            - tag.txt  # Save the image tag information for the next job
+            - ecr_url.txt # Save the ECR URL for the next job
+
+  deploy:
+    executor: python-executor
+    working_directory: ~/workspace
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ~/workspace
+      - run:
+          name: Export Metadata
+          command: |
+            export TAG="$(cat ~/workspace/tag.txt)"
+            echo "TAG='${TAG}'"
+            echo "export TAG='${TAG}'" >> $BASH_ENV
+
+            export ECR_URL="$(cat /home/circleci/workspace/ecr_url.txt)"
+            echo "ECR_URL='${ECR_URL}'"
+            echo "export ECR_URL='${ECR_URL}'" >> $BASH_ENV
+
+      - aws-cli/setup:
+          aws-access-key-id: <<pipeline.parameters.aws-access-key-id>>
+          aws-region: <<pipeline.parameters.region>>
+          aws-secret-access-key: <<pipeline.parameters.aws-secret-access-key>>
+
+      - aws-ecs/update-service:
+          family: << pipeline.parameters.task-definition-family >>
+          cluster-name: << pipeline.parameters.ecs-cluster-name >>
+          service-name: << pipeline.parameters.ecs-service-name >>
+          container-image-name-updates: container=<< pipeline.parameters.ecs-service-container-name >>,tag=${TAG}
+
+workflows:
+  build:
+    jobs:
+      - build:
+          name: build  # Run the build job first
+      - package:
+          name: package
+          requires:
+            - build  # Ensure the package job runs only after the build is complete
+      - publish:
+          name: publish
+          requires:
+            - package  # Ensure the publishing job runs only after the package is complete
+      - deploy:
+          name: deploy
+          requires:
+            - publish
+  #          filters:
+  #            branches:
+  #              only:
+  #                - development # Add your branch name
