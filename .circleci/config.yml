@@ -17,6 +17,10 @@ parameters:
     default: my-python-app
     description: Name of the Amazon ECR repository, where the docker image with be pushed after successful build.
     type: string
+  docker-image-version:
+    default: 1.0.0
+    description: Latest version of the Docker image that will be used in the image tag.
+    type: string
   task-definition-family:
     default: my-python-app-task
     description: Name of the ECS task definition family.
